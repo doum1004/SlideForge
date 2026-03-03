@@ -153,19 +153,29 @@ strong {
 .rounded-xl { border-radius: var(--radius-xl); }
 
 /* ─── Browser Preview ─────────────────────────── */
-/* Enable scrolling when viewed in a normal browser window.
+/* Scale card to fit viewport height when viewed in a normal browser.
    Puppeteer renders at exactly 1080x1440, so this media query
    does NOT activate during PNG export. */
 
 @media (max-width: 1079px), (max-height: 1439px) {
-  html, body {
-    overflow: auto;
+  html {
     width: 100%;
-    height: auto;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+  }
+  body {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #222;
   }
   .card {
+    transform-origin: center center;
+    /* Scale is set by inline JS for exact fit; CSS fallback below */
     margin: 0 auto;
-    overflow: visible;
+    flex-shrink: 0;
   }
 }

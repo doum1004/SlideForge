@@ -31,6 +31,7 @@ const ConfigSchema = z.object({
   // Pipeline settings
   maxQaLoops: z.coerce.number().int().positive().default(3),
   defaultSlides: z.coerce.number().int().min(3).max(20).default(10),
+  defaultSeries: z.string().optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -69,6 +70,7 @@ export function loadConfig(): Config {
     // Pipeline
     maxQaLoops: process.env.MAX_QA_LOOPS ?? undefined,
     defaultSlides: process.env.DEFAULT_SLIDES ?? undefined,
+    defaultSeries: process.env.DEFAULT_SERIES || undefined,
   };
 
   const result = ConfigSchema.safeParse(raw);

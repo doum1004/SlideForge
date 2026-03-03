@@ -36,40 +36,77 @@ export async function getThemeCSS(series: string): Promise<string> {
  * during PNG export.
  */
 const BROWSER_PREVIEW_CSS = `
-/* Browser preview: enable scrolling in normal browser windows */
+/* Browser preview: scale card to fit viewport height */
 @media (max-width: 1079px), (max-height: 1439px) {
-  html, body {
-    overflow: auto !important;
+  html {
     width: 100% !important;
-    height: auto !important;
-    min-height: 100vh;
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+  body {
+    width: 100% !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #222 !important;
   }
   .card {
+    transform-origin: center center;
     margin: 0 auto;
-    overflow: visible !important;
+    flex-shrink: 0;
   }
 }`;
+
+const BROWSER_PREVIEW_JS = `
+<script>
+(function() {
+  var CARD_W = 1080, CARD_H = 1440;
+  function fit() {
+    if (window.innerWidth >= 1080 && window.innerHeight >= 1440) return;
+    var card = document.querySelector('.card');
+    if (!card) return;
+    var scaleX = window.innerWidth / CARD_W;
+    var scaleY = window.innerHeight / CARD_H;
+    var scale = Math.min(scaleX, scaleY);
+    card.style.transform = 'scale(' + scale + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('DOMContentLoaded', fit);
+  fit();
+})();
+<\/script>`;
+
 
 /**
  * Inject browser-preview CSS into a complete HTML document.
  * Inserts before the closing </style> or </head> tag.
  */
 function injectPreviewCSS(html: string): string {
-  // Try inserting before the last </style> tag
+  // Inject CSS before the last </style> tag
   const styleCloseIdx = html.lastIndexOf("</style>");
   if (styleCloseIdx !== -1) {
-    return `${html.slice(0, styleCloseIdx)}${BROWSER_PREVIEW_CSS}\n${html.slice(styleCloseIdx)}`;
+    html = `${html.slice(0, styleCloseIdx)}${BROWSER_PREVIEW_CSS}\n${html.slice(styleCloseIdx)}`;
+  } else {
+    // Fallback: insert before </head>
+    const headCloseIdx = html.indexOf("</head>");
+    if (headCloseIdx !== -1) {
+      html =
+        html.slice(0, headCloseIdx) +
+        `<style>${BROWSER_PREVIEW_CSS}\n</style>\n` +
+        html.slice(headCloseIdx);
+    }
   }
-  // Fallback: insert before </head>
-  const headCloseIdx = html.indexOf("</head>");
-  if (headCloseIdx !== -1) {
-    return (
-      html.slice(0, headCloseIdx) +
-      `<style>${BROWSER_PREVIEW_CSS}\n</style>\n` +
-      html.slice(headCloseIdx)
-    );
+
+  // Inject scaling JS before </body>
+  const bodyCloseIdx = html.lastIndexOf("</body>");
+  if (bodyCloseIdx !== -1) {
+    html = html.slice(0, bodyCloseIdx) + BROWSER_PREVIEW_JS + "\n" + html.slice(bodyCloseIdx);
+  } else {
+    html += BROWSER_PREVIEW_JS;
   }
-  // Last resort: return as-is
+
   return html;
 }
 

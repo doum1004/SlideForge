@@ -4,6 +4,7 @@ import { CopyAgent } from "../agents/contents-marketer.js";
 import { ResearcherAgent } from "../agents/researcher.js";
 import { PipelineContext } from "../pipeline/context.js";
 import { CopyOutput, PlanOutput, type ResearchOutput } from "../pipeline/types.js";
+import { runPipeline } from "../pipeline/orchestrator.js";
 import { renderAllSlides } from "../renderer/png-exporter.js";
 import { reRenderAllSlides } from "../renderer/template-renderer.js";
 import {
@@ -17,108 +18,95 @@ import {
 } from "../utils/file.js";
 import { log } from "../utils/logger.js";
 
-export interface ReuseOptions {
-  topic?: string;
+export interface GenerateOptions {
   input?: string;
-  model?: string;
+  series?: string;
+  slides?: string;
   output?: string;
+  model?: string;
+  template?: string;
+  rerender?: string;
 }
 
 /**
- * Reuse existing HTML templates with new copy content.
+ * Consolidated generate command handler.
  *
- * Both modes create a NEW output directory — the source templates are never modified.
+ * Three modes:
  *
- * Mode A — User provides a copy.json file:
- *   Copies templates to a new dir, applies copy.json, exports PNGs.
+ * 1. Full pipeline (no --template)
+ *    Runs the standard AI pipeline from scratch.
  *
- * Mode B — AI generates new copy from a new topic:
- *   Copies templates to a new dir, runs Research + Copy agents,
- *   applies generated copy, exports PNGs.
+ * 2. Template + AI (--template + topic/input)
+ *    Reuses HTML templates from a previous run, runs Research + Copy agents
+ *    with the new topic, then applies copy and exports PNGs.
  *
- * @param sourceDir - Path to the existing output directory with slides/
- * @param copyFile  - Optional path to a user-provided copy.json
- * @param options   - Options: --topic, --input, --model, --output
+ * 3. Template + Rerender (--template + --rerender)
+ *    Reuses HTML templates, applies user-provided copy.json, exports PNGs.
+ *    Skips all AI entirely.
  */
-export async function reuse(
-  sourceDir: string,
-  copyFile: string | undefined,
-  options: ReuseOptions,
+export async function generate(topic: string | undefined, opts: GenerateOptions): Promise<void> {
+  if (opts.template && opts.rerender) {
+    await templateRerender(opts.template, opts.rerender, opts);
+  } else if (opts.template) {
+    if (!topic && !opts.input) {
+      log.error("--template without --rerender requires a topic or --input for AI copy generation.");
+      process.exit(1);
+    }
+    await templateWithAI(opts.template, topic, opts);
+  } else {
+    // Full pipeline — no template
+    if (!topic && !opts.input) {
+      log.error("Provide a topic or --input file. Run --help for usage.");
+      process.exit(1);
+    }
+
+    const slideCount = parseInt(opts.slides || "10", 10);
+    if (Number.isNaN(slideCount) || slideCount < 3 || slideCount > 20) {
+      log.error("Slide count must be between 3 and 20.");
+      process.exit(1);
+    }
+
+    log.banner("vibe-poster: Card News Generator");
+    log.info(`Topic: ${topic || `(from file: ${opts.input})`}`);
+    log.info(`Series: ${opts.series}`);
+    log.info(`Slides: ${slideCount}`);
+    log.info(`Model: ${opts.model || "(default)"}`);
+    log.info(`Output: ${opts.output}`);
+    log.divider();
+
+    await runPipeline({
+      topic: topic || "",
+      inputFile: opts.input,
+      series: opts.series || "default",
+      slideCount,
+      outputDir: opts.output || "./output",
+      model: opts.model,
+    });
+  }
+}
+
+// ─── Template + Rerender (Mode A / re-render) ──────────────────────────────
+
+/**
+ * Apply a user-provided copy.json to existing templates.
+ * Creates a new output directory — source is never modified.
+ */
+async function templateRerender(
+  templateDir: string,
+  copyFile: string,
+  options: GenerateOptions,
 ): Promise<void> {
-  log.banner("Reuse: Apply new content to existing templates");
-  log.info(`Source templates: ${sourceDir}`);
+  log.banner("Generate: Apply copy.json to existing templates");
+  log.info(`Source templates: ${templateDir}`);
   log.divider();
 
   // Validate source slides directory exists
-  const sourceSlidesDir = join(sourceDir, "slides");
+  const sourceSlidesDir = join(templateDir, "slides");
   if (!(await fileExists(sourceSlidesDir))) {
     log.error(`slides/ directory not found at ${sourceSlidesDir}`);
     log.info("Run the full pipeline first to generate HTML templates.");
     process.exit(1);
   }
-
-  if (copyFile) {
-    await reuseModeA(sourceDir, sourceSlidesDir, copyFile, options);
-  } else if (options.topic || options.input) {
-    await reuseModeB(sourceDir, sourceSlidesDir, options);
-  } else {
-    log.error("Provide a copy.json file or use --topic / --input for AI-generated copy.");
-    log.info("Usage:");
-    log.info("  vibe-poster reuse <dir> <copy.json>           # Mode A: user-provided copy");
-    log.info('  vibe-poster reuse <dir> --topic "new topic"    # Mode B: AI-generated copy');
-    process.exit(1);
-  }
-}
-
-/**
- * Copy HTML template files from source slides/ to a new slides/ directory.
- * Returns the list of copied file names.
- */
-async function copyTemplates(sourceSlidesDir: string, destSlidesDir: string): Promise<string[]> {
-  await ensureDir(destSlidesDir);
-
-  const files = await readdir(sourceSlidesDir);
-  const htmlFiles = files.filter((f) => /^slide-\d+\.html$/.test(f)).sort();
-
-  if (htmlFiles.length === 0) {
-    throw new Error(`No slide HTML files found in ${sourceSlidesDir}`);
-  }
-
-  for (const file of htmlFiles) {
-    const content = await readTextFile(join(sourceSlidesDir, file));
-    await writeOutputFile(join(destSlidesDir, file), content);
-  }
-
-  return htmlFiles;
-}
-
-/**
- * Copy JSON artifacts (plan.json, design-brief.json) from source to new output dir
- * so the new folder is self-contained.
- */
-async function copySourceArtifacts(sourceDir: string, newOutputDir: string): Promise<void> {
-  const artifacts = ["plan.json", "design-brief.json"];
-  for (const name of artifacts) {
-    const src = join(sourceDir, name);
-    if (await fileExists(src)) {
-      const content = await readTextFile(src);
-      await writeOutputFile(join(newOutputDir, name), content);
-    }
-  }
-}
-
-/**
- * Mode A: Apply a user-provided copy.json to existing templates.
- * Creates a new output directory — source is never modified.
- */
-async function reuseModeA(
-  sourceDir: string,
-  sourceSlidesDir: string,
-  copyFile: string,
-  options: ReuseOptions,
-): Promise<void> {
-  log.info("Mode: User-provided copy.json");
-  log.divider();
 
   if (!(await fileExists(copyFile))) {
     log.error(`copy.json not found at ${copyFile}`);
@@ -138,7 +126,7 @@ async function reuseModeA(
   log.success(`Loaded ${copyOutput.slides.length} slides from copy.json`);
 
   // Create new output directory
-  const baseOutput = options.output || dirname(sourceDir);
+  const baseOutput = options.output || dirname(templateDir);
   const newOutputDir = getOutputDir(baseOutput, copyOutput.title || "reuse");
   const newSlidesDir = join(newOutputDir, "slides");
 
@@ -147,7 +135,7 @@ async function reuseModeA(
   // Copy templates and artifacts to new directory
   const htmlFiles = await copyTemplates(sourceSlidesDir, newSlidesDir);
   log.success(`Copied ${htmlFiles.length} HTML templates`);
-  await copySourceArtifacts(sourceDir, newOutputDir);
+  await copySourceArtifacts(templateDir, newOutputDir);
 
   // Apply copy to templates in the NEW directory
   log.step("Applying copy data to HTML templates");
@@ -160,24 +148,40 @@ async function reuseModeA(
   log.step("Rendering PNGs");
   const pngPaths = await renderAllSlides(updatedSlides, newSlidesDir);
 
-  printSummary(newOutputDir, updatedSlides.size, pngPaths.size);
+  log.divider();
+  log.banner("Generate Complete!");
+  log.info(`New output: ${newOutputDir}`);
+  log.info(`Slides updated: ${updatedSlides.size}`);
+  log.info(`PNG files: ${pngPaths.size}`);
+  log.divider();
 }
 
+// ─── Template + AI (Mode B) ────────────────────────────────────────────────
+
 /**
- * Mode B: Run AI Research + Copy agents with a new topic,
- * reusing the existing plan.json and HTML templates.
+ * Run AI Research + Copy agents with a new topic,
+ * reusing existing plan.json and HTML templates.
  * Creates a new output directory — source is never modified.
  */
-async function reuseModeB(
-  sourceDir: string,
-  sourceSlidesDir: string,
-  options: ReuseOptions,
+async function templateWithAI(
+  templateDir: string,
+  topic: string | undefined,
+  options: GenerateOptions,
 ): Promise<void> {
-  log.info("Mode: AI-generated copy from new topic");
+  log.banner("Generate: AI copy with existing templates");
+  log.info(`Source templates: ${templateDir}`);
   log.divider();
 
+  // Validate source slides directory exists
+  const sourceSlidesDir = join(templateDir, "slides");
+  if (!(await fileExists(sourceSlidesDir))) {
+    log.error(`slides/ directory not found at ${sourceSlidesDir}`);
+    log.info("Run the full pipeline first to generate HTML templates.");
+    process.exit(1);
+  }
+
   // Load existing plan.json from source
-  const planPath = join(sourceDir, "plan.json");
+  const planPath = join(templateDir, "plan.json");
   if (!(await fileExists(planPath))) {
     log.error(`plan.json not found at ${planPath}`);
     log.info("The source directory must contain a plan.json from a previous run.");
@@ -196,15 +200,15 @@ async function reuseModeB(
   log.success(`Plan loaded: ${planOutput.totalSlides} slides, "${planOutput.title}"`);
 
   // Resolve topic
-  let topic = options.topic || "";
-  if (options.input && !topic) {
+  let resolvedTopic = topic || "";
+  if (options.input && !resolvedTopic) {
     const content = await readTextFile(options.input);
-    topic = content.split("\n")[0].replace(/^#\s*/, "").trim() || "Untitled Topic";
+    resolvedTopic = content.split("\n")[0].replace(/^#\s*/, "").trim() || "Untitled Topic";
   }
 
   // Create new output directory
-  const baseOutput = options.output || dirname(sourceDir);
-  const newOutputDir = getOutputDir(baseOutput, topic || "reuse");
+  const baseOutput = options.output || dirname(templateDir);
+  const newOutputDir = getOutputDir(baseOutput, resolvedTopic || "reuse");
   const newSlidesDir = join(newOutputDir, "slides");
 
   log.step(`Creating new output: ${newOutputDir}`);
@@ -212,11 +216,11 @@ async function reuseModeB(
   // Copy templates and artifacts to new directory
   const htmlFiles = await copyTemplates(sourceSlidesDir, newSlidesDir);
   log.success(`Copied ${htmlFiles.length} HTML templates`);
-  await copySourceArtifacts(sourceDir, newOutputDir);
+  await copySourceArtifacts(templateDir, newOutputDir);
 
   // Build pipeline context targeting the new output dir
   const ctx = new PipelineContext({
-    topic,
+    topic: resolvedTopic,
     inputFile: options.input,
     series: "default",
     slideCount: planOutput.totalSlides,
@@ -227,13 +231,13 @@ async function reuseModeB(
   // Hydrate plan from disk (skip Stage 2).
   // Adapt the plan's topic-specific fields so the CopyAgent writes about
   // the new topic instead of following old-topic references in purpose/direction.
-  ctx.plan = adaptPlanForNewTopic(planOutput, topic || "(from input file)");
+  ctx.plan = adaptPlanForNewTopic(planOutput, resolvedTopic || "(from input file)");
 
   // If user provided an input file, read it as raw research content
   if (options.input) {
     log.step(`Reading input file: ${options.input}`);
     ctx.rawResearchContent = await readTextFile(options.input);
-    if (!options.topic) {
+    if (!topic) {
       const firstLine = ctx.rawResearchContent.split("\n")[0].replace(/^#\s*/, "").trim();
       (ctx.options as unknown as Record<string, unknown>).topic = firstLine || "Untitled Topic";
     }
@@ -276,8 +280,8 @@ async function reuseModeB(
 
   // Summary
   log.divider();
-  log.banner("Reuse Complete!");
-  log.info(`Source templates: ${sourceDir}`);
+  log.banner("Generate Complete!");
+  log.info(`Source templates: ${templateDir}`);
   log.info(`New output: ${newOutputDir}`);
   log.info(`Slides updated: ${updatedSlides.size}`);
   log.info(`PNG files: ${pngPaths.size}`);
@@ -287,16 +291,43 @@ async function reuseModeB(
   log.divider();
 }
 
+// ─── Shared helpers ────────────────────────────────────────────────────────
+
 /**
- * Print completion summary for Mode A.
+ * Copy HTML template files from source slides/ to a new slides/ directory.
+ * Returns the list of copied file names.
  */
-function printSummary(outputDir: string, slideCount: number, pngCount: number): void {
-  log.divider();
-  log.banner("Reuse Complete!");
-  log.info(`New output: ${outputDir}`);
-  log.info(`Slides updated: ${slideCount}`);
-  log.info(`PNG files: ${pngCount}`);
-  log.divider();
+async function copyTemplates(sourceSlidesDir: string, destSlidesDir: string): Promise<string[]> {
+  await ensureDir(destSlidesDir);
+
+  const files = await readdir(sourceSlidesDir);
+  const htmlFiles = files.filter((f) => /^slide-\d+\.html$/.test(f)).sort();
+
+  if (htmlFiles.length === 0) {
+    throw new Error(`No slide HTML files found in ${sourceSlidesDir}`);
+  }
+
+  for (const file of htmlFiles) {
+    const content = await readTextFile(join(sourceSlidesDir, file));
+    await writeOutputFile(join(destSlidesDir, file), content);
+  }
+
+  return htmlFiles;
+}
+
+/**
+ * Copy JSON artifacts (plan.json, design-brief.json) from source to new output dir
+ * so the new folder is self-contained.
+ */
+async function copySourceArtifacts(sourceDir: string, newOutputDir: string): Promise<void> {
+  const artifacts = ["plan.json", "design-brief.json"];
+  for (const name of artifacts) {
+    const src = join(sourceDir, name);
+    if (await fileExists(src)) {
+      const content = await readTextFile(src);
+      await writeOutputFile(join(newOutputDir, name), content);
+    }
+  }
 }
 
 /**
