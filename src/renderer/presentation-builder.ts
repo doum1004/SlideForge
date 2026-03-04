@@ -81,12 +81,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Pretendard','Noto 
 .slide-frame iframe{width:100%;height:100%;border:none;display:block}
 .slide-frame img{width:100%;height:100%;object-fit:contain;display:block}
 
-/* ─── Nav Arrows (overlaid, no layout impact) ─── */
-.nav-arrow{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:56px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border:none;color:rgba(255,255,255,.85);font-size:16px;cursor:pointer;border-radius:8px;transition:background .15s,opacity .15s;z-index:5;backdrop-filter:blur(4px)}
+/* ─── Nav Arrows (overlaid, auto-hide) ─── */
+.nav-arrow{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:56px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border:none;color:rgba(255,255,255,.85);font-size:16px;cursor:pointer;border-radius:8px;transition:background .15s,opacity .4s;z-index:5;backdrop-filter:blur(4px);opacity:0}
 .nav-arrow:hover{background:rgba(0,0,0,.6)}
 .nav-arrow.left{left:2px}
 .nav-arrow.right{right:2px}
-.nav-arrow:disabled{opacity:0;pointer-events:none}
+.nav-arrow:disabled{opacity:0!important;pointer-events:none}
+.presenter.ui-visible .nav-arrow:not(:disabled){opacity:1}
 
 /* ─── Thumbnail Strip ─── */
 .thumb-strip{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#1a1a1a;border-top:1px solid #333;overflow-x:auto;flex-shrink:0;z-index:10;-webkit-overflow-scrolling:touch}
@@ -113,7 +114,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Pretendard','Noto 
   .thumb .thumb-num{font-size:13px}
 }
 
-/* ─── Hide fullscreen label on small screens ─── */
+/* ─── Mobile: auto-hide chrome ─── */
+@media (max-width:599px){
+  .top-bar,.thumb-strip{transition:opacity .4s,transform .3s}
+  .presenter:not(.ui-visible) .top-bar{opacity:0;pointer-events:none;transform:translateY(-100%)}
+  .presenter:not(.ui-visible) .thumb-strip{opacity:0;pointer-events:none;transform:translateY(100%)}
+}
 @media (max-width:420px){
   .btn-label{display:none}
 }
@@ -258,6 +264,20 @@ document.getElementById('stage').addEventListener('touchend', function(e) {
 
 window.addEventListener('resize', fitSlide);
 window.addEventListener('DOMContentLoaded', init);
+
+var hideTimer = null;
+function showUI() {
+  document.querySelector('.presenter').classList.add('ui-visible');
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(hideUI, 2500);
+}
+function hideUI() {
+  document.querySelector('.presenter').classList.remove('ui-visible');
+}
+document.addEventListener('mousemove', showUI);
+document.addEventListener('touchstart', showUI, { passive: true });
+document.addEventListener('keydown', showUI);
+showUI();
 </script>
 </body>
 </html>`;
