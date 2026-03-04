@@ -3,6 +3,7 @@ import {
   CopyOutput,
   DesignBriefOutput,
   PlanOutput,
+  QAReport,
   ResearchOutput,
 } from "../../src/pipeline/types.js";
 
@@ -43,11 +44,46 @@ describe("PlanOutput schema", () => {
     totalSlides: 5,
     narrative: "empathy to action",
     slides: [
-      { slideNumber: 1, role: "cover", emotionPhase: "empathy", emotionTemperature: 2, purpose: "hook", direction: "bold intro" },
-      { slideNumber: 2, role: "body", emotionPhase: "transition", emotionTemperature: 3, purpose: "explain", direction: "stats" },
-      { slideNumber: 3, role: "body", emotionPhase: "evidence", emotionTemperature: 4, purpose: "prove", direction: "data" },
-      { slideNumber: 4, role: "body", emotionPhase: "evidence", emotionTemperature: 3, purpose: "context", direction: "example" },
-      { slideNumber: 5, role: "cta", emotionPhase: "action", emotionTemperature: 5, purpose: "convert", direction: "call to action" },
+      {
+        slideNumber: 1,
+        role: "cover",
+        emotionPhase: "empathy",
+        emotionTemperature: 2,
+        purpose: "hook",
+        direction: "bold intro",
+      },
+      {
+        slideNumber: 2,
+        role: "body",
+        emotionPhase: "transition",
+        emotionTemperature: 3,
+        purpose: "explain",
+        direction: "stats",
+      },
+      {
+        slideNumber: 3,
+        role: "body",
+        emotionPhase: "evidence",
+        emotionTemperature: 4,
+        purpose: "prove",
+        direction: "data",
+      },
+      {
+        slideNumber: 4,
+        role: "body",
+        emotionPhase: "evidence",
+        emotionTemperature: 3,
+        purpose: "context",
+        direction: "example",
+      },
+      {
+        slideNumber: 5,
+        role: "cta",
+        emotionPhase: "action",
+        emotionTemperature: 5,
+        purpose: "convert",
+        direction: "call to action",
+      },
     ],
   };
 
@@ -112,17 +148,19 @@ describe("CopyOutput schema", () => {
   it("allows all optional fields", () => {
     const data = {
       title: "Test",
-      slides: [{
-        slideNumber: 1,
-        role: "body",
-        heading: "h",
-        subheading: "sh",
-        bodyText: "body",
-        bulletPoints: ["a", "b"],
-        accentText: "accent",
-        footnote: "fn",
-        ctaText: "cta",
-      }],
+      slides: [
+        {
+          slideNumber: 1,
+          role: "body",
+          heading: "h",
+          subheading: "sh",
+          bodyText: "body",
+          bulletPoints: ["a", "b"],
+          accentText: "accent",
+          footnote: "fn",
+          ctaText: "cta",
+        },
+      ],
     };
     expect(() => CopyOutput.parse(data)).not.toThrow();
   });
@@ -165,14 +203,16 @@ describe("DesignBriefOutput schema", () => {
   it("allows optional color overrides per slide", () => {
     const data = {
       ...VALID,
-      slides: [{
-        slideNumber: 1,
-        layoutPattern: "intro-cover",
-        primaryColor: "#000",
-        secondaryColor: "#fff",
-        backgroundColor: "#eee",
-        notes: "dark theme for cover",
-      }],
+      slides: [
+        {
+          slideNumber: 1,
+          layoutPattern: "intro-cover",
+          primaryColor: "#000",
+          secondaryColor: "#fff",
+          backgroundColor: "#eee",
+          notes: "dark theme for cover",
+        },
+      ],
     };
     expect(() => DesignBriefOutput.parse(data)).not.toThrow();
   });
@@ -193,15 +233,34 @@ describe("DesignBriefOutput schema", () => {
 
   it("validates all 28 layout pattern IDs", () => {
     const patterns = [
-      "info-stats", "info-quote", "info-definition", "info-list",
-      "info-highlight", "info-callout", "info-icon-grid",
-      "proc-steps", "proc-timeline", "proc-numbered", "proc-flowchart", "proc-checklist",
-      "comp-before-after", "comp-versus", "comp-table",
-      "data-bar", "data-pie", "data-metric",
-      "emph-big-text", "emph-centered", "emph-split", "emph-gradient",
-      "code-snippet", "code-terminal",
-      "mixed-text-image", "mixed-card-grid",
-      "intro-cover", "intro-cta",
+      "info-stats",
+      "info-quote",
+      "info-definition",
+      "info-list",
+      "info-highlight",
+      "info-callout",
+      "info-icon-grid",
+      "proc-steps",
+      "proc-timeline",
+      "proc-numbered",
+      "proc-flowchart",
+      "proc-checklist",
+      "comp-before-after",
+      "comp-versus",
+      "comp-table",
+      "data-bar",
+      "data-pie",
+      "data-metric",
+      "emph-big-text",
+      "emph-centered",
+      "emph-split",
+      "emph-gradient",
+      "code-snippet",
+      "code-terminal",
+      "mixed-text-image",
+      "mixed-card-grid",
+      "intro-cover",
+      "intro-cta",
     ];
     for (const p of patterns) {
       const data = {
@@ -209,6 +268,85 @@ describe("DesignBriefOutput schema", () => {
         slides: [{ slideNumber: 1, layoutPattern: p }],
       };
       expect(() => DesignBriefOutput.parse(data)).not.toThrow();
+    }
+  });
+});
+
+describe("QAReport schema", () => {
+  const VALID = {
+    passedAutoChecks: true,
+    autoCheckResults: [
+      { rule: "canvas-size", passed: true },
+      { rule: "overflow-hidden", passed: true },
+      { rule: "min-font-size", passed: false, detail: "Found 14px" },
+    ],
+    issues: [
+      {
+        slideNumber: 2,
+        severity: "high",
+        category: "layout",
+        description: "Font size below 28px",
+        suggestion: "Increase to at least 28px",
+      },
+    ],
+    overallVerdict: "needs_revision",
+  };
+
+  it("accepts valid QA report", () => {
+    expect(() => QAReport.parse(VALID)).not.toThrow();
+  });
+
+  it("accepts passing report with no issues", () => {
+    const data = {
+      passedAutoChecks: true,
+      autoCheckResults: [{ rule: "canvas-size", passed: true }],
+      issues: [],
+      overallVerdict: "pass",
+    };
+    expect(() => QAReport.parse(data)).not.toThrow();
+  });
+
+  it("allows optional detail in autoCheckResults", () => {
+    const data = {
+      ...VALID,
+      autoCheckResults: [{ rule: "test", passed: true }],
+    };
+    expect(() => QAReport.parse(data)).not.toThrow();
+  });
+
+  it("allows optional suggestion in issues", () => {
+    const data = {
+      ...VALID,
+      issues: [{ slideNumber: 1, severity: "low", category: "style", description: "Minor issue" }],
+    };
+    expect(() => QAReport.parse(data)).not.toThrow();
+  });
+
+  it("rejects invalid verdict", () => {
+    const data = { ...VALID, overallVerdict: "maybe" };
+    expect(() => QAReport.parse(data)).toThrow();
+  });
+
+  it("rejects invalid severity", () => {
+    const data = {
+      ...VALID,
+      issues: [{ slideNumber: 1, severity: "critical", category: "layout", description: "Bad" }],
+    };
+    expect(() => QAReport.parse(data)).toThrow();
+  });
+
+  it("rejects missing passedAutoChecks", () => {
+    const { passedAutoChecks: _, ...rest } = VALID;
+    expect(() => QAReport.parse(rest)).toThrow();
+  });
+
+  it("validates all severity levels", () => {
+    for (const severity of ["high", "medium", "low"]) {
+      const data = {
+        ...VALID,
+        issues: [{ slideNumber: 1, severity, category: "test", description: "test" }],
+      };
+      expect(() => QAReport.parse(data)).not.toThrow();
     }
   });
 });

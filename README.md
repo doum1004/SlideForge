@@ -1,28 +1,85 @@
 # vibe-poster
 
-CLI tool that generates Instagram card news carousels (1080x1440px PNGs) using an AI-powered multi-agent pipeline. Korean-first design.
+Generates Instagram card news carousels (1080×1440px PNGs) with a Korean-first design system. Two modes of operation:
 
-## Quick Start
+- **MCP Server** (recommended) — Connect any LLM agent (Cursor, Claude Desktop, etc.). The agent does all creative work; this project handles validation, rendering, and file I/O. **No API keys needed.**
+- **CLI** (standalone) — Built-in multi-agent pipeline that calls LLM APIs directly. Requires API keys.
+
+## Quick Start — MCP Server (No API Keys)
+
+**Prerequisites**: [Bun](https://bun.sh) v1.0+, Chrome/Chromium (auto-detected).
+
+```bash
+bun install
+bun run mcp   # Starts stdio server — connect from Cursor or Claude Desktop
+```
+
+The LLM agent calling the tools IS the LLM. See [MCP Server](#mcp-server) section for setup.
+
+## Quick Start — CLI (API Keys Required)
 
 **Prerequisites**: [Bun](https://bun.sh) v1.0+, Chrome/Chromium (auto-detected), at least one LLM API key.
 
 ```bash
-# Install dependencies
 bun install
+cp .env.example .env    # Edit with your API key(s)
 
-# Set up environment
-cp .env.example .env
-# Edit .env with your API key(s)
-
-# Generate card news
 bun start generate "왜 고양이는 잠을 많이 잘까"
-
-# Or from a research file
 bun start generate --input notes.md --slides 8 --model claude-sonnet-4
-
-# List available series themes
 bun start series list
 ```
+
+## Configuration
+
+### Environment Variables (CLI mode only)
+
+MCP server mode requires **no configuration** — no API keys, no env file. The following settings only apply to the standalone CLI pipeline.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | - | Claude models |
+| `OPENAI_API_KEY` | - | GPT / o-series models |
+| `GOOGLE_API_KEY` | - | Gemini models |
+| `LLM_MODEL` | `gpt-5-mini` | Default model alias or raw model ID |
+| `LLM_BASE_URL` | - | OpenAI-compatible proxy (LiteLLM, Ollama, vLLM) |
+| `CHROME_PATH` | auto-detected | Chrome/Chromium executable path |
+| `MAX_QA_LOOPS` | `3` | Max QA review-fix iterations |
+| `DEFAULT_SLIDES` | `10` | Default slide count |
+
+At least one API key is required for CLI mode. Multiple keys enable cross-provider model selection.
+
+<details>
+<summary>Per-agent model overrides (CLI mode)</summary>
+
+Each agent can use a different model for cost optimization:
+
+| Variable | Agent | Use case |
+|---|---|---|
+| `RESEARCHER_MODEL` | Researcher | Cheap model is fine |
+| `PLANNER_MODEL` | Content Planner | Medium model |
+| `COPY_MODEL` | Copywriter | Needs strong Korean |
+| `DESIGNER_MODEL` | Designer | Medium model |
+| `DEVELOPER_MODEL` | HTML Developer | Needs strong code gen |
+| `QA_MODEL` | QA Reviewer | Medium model |
+
+**Resolution order**: Per-agent env var > CLI `--model` flag > `LLM_MODEL` env var.
+
+</details>
+
+<details>
+<summary>Supported model aliases (CLI mode)</summary>
+
+16 pre-registered aliases across 3 providers:
+
+| Provider | Aliases |
+|---|---|
+| Anthropic | `claude-sonnet-4.5`, `claude-sonnet-4`, `claude-opus-4`, `claude-haiku-3.5` |
+| OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5-mini`, `o3`, `o3-mini`, `o4-mini` |
+| Google | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash` |
+
+Unregistered model IDs are auto-detected by name prefix or fall back to OpenAI-compatible. LiteLLM-style prefixes (e.g. `anthropic/claude-sonnet-4`) are supported.
+
+</details>
 
 ## CLI Reference
 
@@ -39,64 +96,9 @@ Generate card news slides from a topic or markdown file.
 | `-o, --output <dir>` | `./output` | Output directory |
 | `-m, --model <alias>` | env `LLM_MODEL` | LLM model alias or full model ID |
 
-### `series list`
+### `series list` / `series create <name>`
 
-Lists available series themes (scans `src/design-system/series/`).
-
-### `series create <name>`
-
-Creates a new series theme directory with stub `theme.json` and `theme.css`.
-
-## Configuration
-
-All config is via environment variables (see `.env.example`).
-
-### API Keys
-
-| Variable | Provider |
-|---|---|
-| `ANTHROPIC_API_KEY` | Claude models |
-| `OPENAI_API_KEY` | GPT / o-series models |
-| `GOOGLE_API_KEY` | Gemini models |
-
-At least one key is required. Multiple keys enable cross-provider model selection.
-
-### General Settings
-
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_MODEL` | `gpt-5-mini` | Default model alias or raw model ID |
-| `LLM_BASE_URL` | - | OpenAI-compatible proxy (LiteLLM, Ollama, vLLM) |
-| `CHROME_PATH` | auto-detected | Chrome/Chromium executable path |
-| `MAX_QA_LOOPS` | `3` | Max QA review-fix iterations |
-| `DEFAULT_SLIDES` | `10` | Default slide count |
-
-### Per-Agent Model Overrides
-
-Each agent can use a different model for cost optimization:
-
-| Variable | Agent | Use case |
-|---|---|---|
-| `RESEARCHER_MODEL` | Researcher | Cheap model is fine |
-| `PLANNER_MODEL` | Content Planner | Medium model |
-| `COPY_MODEL` | Copywriter | Needs strong Korean |
-| `DESIGNER_MODEL` | Designer | Medium model |
-| `DEVELOPER_MODEL` | HTML Developer | Needs strong code gen |
-| `QA_MODEL` | QA Reviewer | Medium model |
-
-**Resolution order**: Per-agent env var > CLI `--model` flag > `LLM_MODEL` env var.
-
-### Supported Models
-
-16 pre-registered aliases across 3 providers:
-
-| Provider | Aliases |
-|---|---|
-| Anthropic | `claude-sonnet-4.5`, `claude-sonnet-4`, `claude-opus-4`, `claude-haiku-3.5` |
-| OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5-mini`, `o3`, `o3-mini`, `o4-mini` |
-| Google | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash` |
-
-Unregistered model IDs are auto-detected by name prefix or fall back to OpenAI-compatible. LiteLLM-style prefixes (e.g. `anthropic/claude-sonnet-4`) are supported.
+List or create series themes (see [Series Themes](#series-themes)).
 
 ## MCP Server (Agent-Driven Mode)
 
@@ -110,6 +112,8 @@ vibe-poster can run as an **MCP server** where the connected LLM agent (Claude, 
 |---|---|
 | `save_pipeline_data` | Validate & save stage output (research, plan, copy, design JSON) |
 | `build_slides` | Validate HTML slides against design rules, wrap with tokens, save to disk |
+| `validate_slides` | Run auto-validation rules on built slides (read-only check) |
+| `save_qa_report` | Validate and save a QA review report |
 | `render_pngs` | Render HTML slides to 1080×1440px PNGs via headless Chrome (auto-generates presentation) |
 | `generate_presentation` | Generate a standalone presentation.html viewer from a slides directory |
 | `list_series` | List available series themes |
@@ -119,8 +123,9 @@ vibe-poster can run as an **MCP server** where the connected LLM agent (Claude, 
 
 | Prompt | Description |
 |---|---|
-| `pipeline_overview` | Full pipeline guide with JSON schemas for all 6 stages |
+| `pipeline_overview` | Full pipeline guide with JSON schemas for all 8 stages |
 | `html_developer_guide` | Detailed HTML/CSS rules for building slides |
+| `qa_reviewer_guide` | QA review rules, severity levels, checklist, and report schema |
 
 ### MCP Resources
 
@@ -176,9 +181,9 @@ The server communicates over stdio. An MCP client must connect — running direc
 ### Pipeline Flow
 
 ```
-Topic/File -> Research -> Plan -> Copy -> Design -> HTML Build -> Auto-Validate -> QA Review -> PNG Export -> Presentation
-                                                                                      |
-                                                                          (fix loop, up to N iterations)
+Topic/File -> Research -> Plan -> Copy -> Design -> HTML Build -> Validate & QA -> PNG Export -> Presentation
+                                                                       |
+                                                           (fix loop until QA passes)
 ```
 
 ### Agents
