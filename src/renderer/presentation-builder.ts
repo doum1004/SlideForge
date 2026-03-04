@@ -122,7 +122,7 @@ var current = 0;
 var mode = 'html';
 var hasPngs = ${hasPngs};
 
-var htmlSrcdocs = ${JSON.stringify(htmlContents.map((h) => h))};
+var htmlSrcdocs = ${JSON.stringify(htmlContents).replace(/<\//g, "<\\/")};
 var pngFiles = ${JSON.stringify(slideEntries.map((e) => (e.pngFile ? `${slidesDirName}/${e.pngFile}` : null)))};
 var htmlFileLinks = ${JSON.stringify(slideEntries.map((e) => `${slidesDirName}/${e.htmlFile}`))};
 
