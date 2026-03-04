@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "vibe-poster": {
+      "command": "bun",
+      "args": ["src/mcp-server.ts"],
+      "cwd": "C:/Workspace/Personal/vibe_image_poster"
+    }
+  }
+}
