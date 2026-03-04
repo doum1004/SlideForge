@@ -76,17 +76,17 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Pretendard','Noto 
 .counter{font-size:12px;color:#888;font-variant-numeric:tabular-nums;min-width:44px;text-align:center}
 
 /* ─── Stage ─── */
-.stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:#111}
-.slide-frame{width:1080px;height:1440px;transform-origin:center center;position:relative;overflow:hidden}
+.stage{flex:1;position:relative;overflow:hidden;background:#111}
+.slide-frame{width:1080px;height:1440px;transform-origin:top left;position:absolute;top:0;left:0;overflow:hidden}
 .slide-frame iframe{width:100%;height:100%;border:none;display:block}
 .slide-frame img{width:100%;height:100%;object-fit:contain;display:block}
 
-/* ─── Nav Arrows ─── */
-.nav-arrow{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:64px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border:none;color:#fff;font-size:18px;cursor:pointer;border-radius:8px;transition:background .15s;z-index:5;backdrop-filter:blur(4px)}
-.nav-arrow:hover{background:rgba(0,0,0,.7)}
-.nav-arrow.left{left:4px}
-.nav-arrow.right{right:4px}
-.nav-arrow:disabled{opacity:.15;cursor:default}
+/* ─── Nav Arrows (overlaid, no layout impact) ─── */
+.nav-arrow{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:56px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border:none;color:rgba(255,255,255,.85);font-size:16px;cursor:pointer;border-radius:8px;transition:background .15s,opacity .15s;z-index:5;backdrop-filter:blur(4px)}
+.nav-arrow:hover{background:rgba(0,0,0,.6)}
+.nav-arrow.left{left:2px}
+.nav-arrow.right{right:2px}
+.nav-arrow:disabled{opacity:0;pointer-events:none}
 
 /* ─── Thumbnail Strip ─── */
 .thumb-strip{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#1a1a1a;border-top:1px solid #333;overflow-x:auto;flex-shrink:0;z-index:10;-webkit-overflow-scrolling:touch}
@@ -104,9 +104,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Pretendard','Noto 
   .btn{padding:6px 14px;font-size:13px}
   .counter{font-size:13px;min-width:60px}
   .nav-arrow{width:48px;height:80px;font-size:22px}
-  .nav-arrow.left{left:12px}
-  .nav-arrow.right{right:12px}
-  .slide-frame{border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+  .nav-arrow.left{left:16px}
+  .nav-arrow.right{right:16px}
   .thumb-strip{gap:8px;padding:10px 20px}
   .thumb{width:54px;height:72px;border-radius:4px}
   .thumb.active{transform:scale(1.08)}
@@ -227,13 +226,16 @@ function toggleFullscreen() {
 function fitSlide() {
   var stage = document.getElementById('stage');
   var frame = document.getElementById('slide-frame');
-  var arrowSpace = stage.clientWidth < 600 ? 16 : 140;
-  var sw = stage.clientWidth - arrowSpace;
-  var sh = stage.clientHeight - 16;
+  var sw = stage.clientWidth;
+  var sh = stage.clientHeight;
   var scaleX = sw / 1080;
   var scaleY = sh / 1440;
   var scale = Math.min(scaleX, scaleY, 1);
+  var renderW = 1080 * scale;
+  var renderH = 1440 * scale;
   frame.style.transform = 'scale(' + scale + ')';
+  frame.style.left = ((sw - renderW) / 2) + 'px';
+  frame.style.top = ((sh - renderH) / 2) + 'px';
 }
 
 document.addEventListener('keydown', function(e) {
