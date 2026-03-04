@@ -456,10 +456,11 @@ server.registerTool(
       const validation = validateAllSlides(htmlMap);
 
       let presentationPath: string | null = null;
+      let presentationWarning: string | null = null;
       try {
         presentationPath = await buildPresentation(slidesDir);
-      } catch {
-        // non-fatal — presentation generation can fail without blocking the build
+      } catch (e) {
+        presentationWarning = e instanceof Error ? e.message : String(e);
       }
 
       return {
@@ -472,6 +473,7 @@ server.registerTool(
                 slidesDir,
                 slidesBuilt: args.slides.length,
                 ...(presentationPath ? { presentationPath } : {}),
+                ...(presentationWarning ? { presentationWarning } : {}),
                 validation: {
                   allPassed: validation.allPassed,
                   highIssues: validation.highCount,
