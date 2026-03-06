@@ -90,9 +90,9 @@ describe("buildSlideHtml", () => {
     expect(result).not.toContain("<!DOCTYPE html>\n<html lang");
   });
 
-  it("handles non-existent series gracefully", async () => {
+  it("handles non-existent theme gracefully", async () => {
     const fragment = '<div class="card"><p>Test</p></div>';
-    const result = await buildSlideHtml(fragment, "non-existent-series-xyz");
+    const result = await buildSlideHtml(fragment, "non-existent-theme-xyz");
 
     expect(result).toContain("<!DOCTYPE html>");
     expect(result).toContain("no theme overrides");

@@ -2,9 +2,9 @@
  * Cross-platform user preferences.
  *
  * Stores preferences in a JSON file at the OS-appropriate config directory:
- *   - Windows:  %APPDATA%/vibe-poster/preferences.json
- *   - macOS:    ~/Library/Application Support/vibe-poster/preferences.json
- *   - Linux:    ~/.config/vibe-poster/preferences.json
+ *   - Windows:  %APPDATA%/slideforge/preferences.json
+ *   - macOS:    ~/Library/Application Support/slideforge/preferences.json
+ *   - Linux:    ~/.config/slideforge/preferences.json
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -13,10 +13,10 @@ import { dirname, join } from "node:path";
 // ─── Preferences Schema ────────────────────────────────────────────────
 
 export interface UserPreferences {
-  /** Default series / brand name for the bottom bar */
-  series?: string;
-  /** Default LLM model alias or ID */
-  model?: string;
+  /** Default theme name */
+  theme?: string;
+  /** Author / brand shown in the bottom bar (default: @SlideForge) */
+  author?: string;
   /** Default number of slides */
   slides?: number;
   /** Default output directory */
@@ -25,8 +25,8 @@ export interface UserPreferences {
 
 /** Keys that are valid for get/set operations */
 export const PREFERENCE_KEYS: ReadonlyArray<keyof UserPreferences> = [
-  "series",
-  "model",
+  "theme",
+  "author",
   "slides",
   "output",
 ];
@@ -34,7 +34,7 @@ export const PREFERENCE_KEYS: ReadonlyArray<keyof UserPreferences> = [
 // ─── Config Directory Resolution ────────────────────────────────────────
 
 function getConfigDir(): string {
-  const appName = "vibe-poster";
+  const appName = "slideforge";
 
   switch (process.platform) {
     case "win32": {

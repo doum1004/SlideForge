@@ -1,5 +1,5 @@
 /**
- * Layout Pattern Catalog — 29 shared patterns.
+ * Layout Pattern Catalog — 28 shared patterns.
  * The designer agent selects from these patterns for each slide.
  * The developer agent uses the pattern to determine HTML structure.
  */
@@ -243,9 +243,9 @@ export const PATTERN_CATALOG: PatternDefinition[] = [
     id: "intro-cover",
     category: "intro",
     name: "Cover Slide",
-    description: "Title page with series branding and topic",
+    description: "Title page with branding and topic",
     suitableFor: ["cover"],
-    structureHint: "series-label + hero-title + subtitle + decoration",
+    structureHint: "theme-label + hero-title + subtitle + decoration",
   },
   {
     id: "intro-cta",

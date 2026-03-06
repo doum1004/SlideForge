@@ -181,7 +181,7 @@ describe("CopyOutput schema", () => {
 
 describe("DesignBriefOutput schema", () => {
   const VALID = {
-    seriesTheme: "default",
+    theme: "default",
     colorPalette: {
       primary: "#6C5CE7",
       secondary: "#A29BFE",

@@ -1,11 +1,12 @@
-# vibe-poster
+# SlideForge
 
-Generates Instagram card news carousels (1080×1440px PNGs) with a Korean-first design system. Two modes of operation:
+Generates Instagram card news carousels (1080×1440px PNGs) with a Korean-first design system.
 
-- **MCP Server** (recommended) — Connect any LLM agent (Cursor, Claude Desktop, etc.). The agent does all creative work; this project handles validation, rendering, and file I/O. **No API keys needed.**
-- **CLI** (standalone) — Built-in multi-agent pipeline that calls LLM APIs directly. Requires API keys.
+**MCP Server** — Connect any LLM agent (Cursor, Claude Desktop, etc.). The agent does all creative work (research, planning, copywriting, design, HTML coding); SlideForge handles validation, rendering, and file I/O. **No API keys needed.**
 
-## Quick Start — MCP Server (No API Keys)
+The CLI is available for template re-rendering (applying new copy.json to existing slide templates).
+
+## Quick Start
 
 **Prerequisites**: [Bun](https://bun.sh) v1.0+, Chrome/Chromium (auto-detected).
 
@@ -14,97 +15,129 @@ bun install
 bun run mcp   # Starts stdio server — connect from Cursor or Claude Desktop
 ```
 
-The LLM agent calling the tools IS the LLM. See [MCP Server](#mcp-server) section for setup.
-
-## Quick Start — CLI (API Keys Required)
-
-**Prerequisites**: [Bun](https://bun.sh) v1.0+, Chrome/Chromium (auto-detected), at least one LLM API key.
-
-```bash
-bun install
-cp .env.example .env    # Edit with your API key(s)
-
-bun start generate "왜 고양이는 잠을 많이 잘까"
-bun start generate --input notes.md --slides 8 --model claude-sonnet-4
-bun start series list
-```
-
 ## Configuration
 
-### Environment Variables (CLI mode only)
+### User Preferences (persistent)
 
-MCP server mode requires **no configuration** — no API keys, no env file. The following settings only apply to the standalone CLI pipeline.
+Set defaults once — they're saved to disk and used automatically on every run.
+
+```bash
+slideforge config set author @MyBrand      # bottom-bar branding on every slide
+slideforge config set theme MyTheme        # design theme name
+slideforge config set output ./my-output   # default output directory
+slideforge config list                     # show all preferences
+slideforge config unset author             # remove a preference
+```
+
+Preferences are stored at:
+- **Windows**: `%APPDATA%/slideforge/preferences.json`
+- **macOS**: `~/Library/Application Support/slideforge/preferences.json`
+- **Linux**: `~/.config/slideforge/preferences.json`
+
+### Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | - | Claude models |
-| `OPENAI_API_KEY` | - | GPT / o-series models |
-| `GOOGLE_API_KEY` | - | Gemini models |
-| `LLM_MODEL` | `gpt-5-mini` | Default model alias or raw model ID |
-| `LLM_BASE_URL` | - | OpenAI-compatible proxy (LiteLLM, Ollama, vLLM) |
 | `CHROME_PATH` | auto-detected | Chrome/Chromium executable path |
-| `MAX_QA_LOOPS` | `3` | Max QA review-fix iterations |
-| `DEFAULT_SLIDES` | `10` | Default slide count |
+| `DEFAULT_THEME` | `default` | Default theme name |
+| `DEFAULT_AUTHOR` | `@SlideForge` | Author / brand shown in the bottom bar of every slide |
 
-At least one API key is required for CLI mode. Multiple keys enable cross-provider model selection.
+MCP transport variables (`MCP_TRANSPORT`, `MCP_HOST`, `MCP_PORT`, etc.) are documented in the [Transport Modes](#transport-modes) section.
 
-<details>
-<summary>Per-agent model overrides (CLI mode)</summary>
+**Resolution order** (for theme): CLI `--theme` flag > `DEFAULT_THEME` env var > user preference > `"default"`
 
-Each agent can use a different model for cost optimization:
+**Resolution order** (for author): `DEFAULT_AUTHOR` env var > `author` user preference > `"@SlideForge"`
 
-| Variable | Agent | Use case |
+## MCP Server
+
+SlideForge runs as an **MCP server** where the connected LLM agent (Claude, GPT, etc.) **is the brain**. The agent does all creative work — research, planning, copywriting, design, HTML coding — and the server handles only non-AI operations: validation, file I/O, and PNG rendering.
+
+### Transport Modes
+
+The server supports three transport modes. Choose the one that fits your setup:
+
+| Mode | Protocol | Use case |
 |---|---|---|
-| `RESEARCHER_MODEL` | Researcher | Cheap model is fine |
-| `PLANNER_MODEL` | Content Planner | Medium model |
-| `COPY_MODEL` | Copywriter | Needs strong Korean |
-| `DESIGNER_MODEL` | Designer | Medium model |
-| `DEVELOPER_MODEL` | HTML Developer | Needs strong code gen |
-| `QA_MODEL` | QA Reviewer | Medium model |
+| **stdio** (default) | stdin/stdout | Local integrations — Cursor, Claude Desktop, etc. |
+| **http** | Streamable HTTP | Remote / network access — recommended for servers |
+| **sse** | HTTP + SSE (legacy) | Older MCP clients that don't support Streamable HTTP |
 
-**Resolution order**: Per-agent env var > CLI `--model` flag > `LLM_MODEL` env var.
+```bash
+# stdio (default) — for Cursor / Claude Desktop
+bun run mcp
 
-</details>
+# Streamable HTTP — serves on http://127.0.0.1:3000/mcp
+bun run mcp --transport http
 
-<details>
-<summary>Supported model aliases (CLI mode)</summary>
+# Legacy SSE — serves on http://127.0.0.1:3000/sse + /messages
+bun run mcp --transport sse
+```
 
-16 pre-registered aliases across 3 providers:
+All network options can be set via CLI flags or environment variables:
 
-| Provider | Aliases |
-|---|---|
-| Anthropic | `claude-sonnet-4.5`, `claude-sonnet-4`, `claude-opus-4`, `claude-haiku-3.5` |
-| OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-5-mini`, `o3`, `o3-mini`, `o4-mini` |
-| Google | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash` |
+| Flag | Env var | Default | Description |
+|---|---|---|---|
+| `--transport` | `MCP_TRANSPORT` | `stdio` | Transport mode: `stdio`, `http`, or `sse` |
+| `--host` | `MCP_HOST` | `127.0.0.1` | Bind address |
+| `--port` | `MCP_PORT` | `3000` | Bind port |
+| `--mcp-path` | `MCP_PATH` | `/mcp` | Endpoint path (`http` mode) |
+| `--sse-path` | `MCP_SSE_PATH` | `/sse` | SSE stream endpoint (`sse` mode) |
+| `--messages-path` | `MCP_MESSAGES_PATH` | `/messages` | POST endpoint (`sse` mode) |
 
-Unregistered model IDs are auto-detected by name prefix or fall back to OpenAI-compatible. LiteLLM-style prefixes (e.g. `anthropic/claude-sonnet-4`) are supported.
+Run `bun run mcp --help` for the full list.
 
-</details>
+### Setup for Claude Desktop (stdio)
 
-## CLI Reference
+Add to `claude_desktop_config.json`:
 
-### `generate [topic]`
+```json
+{
+  "mcpServers": {
+    "slideforge": {
+      "command": "bun",
+      "args": ["src/mcp-server.ts"],
+      "cwd": "/path/to/slideforge"
+    }
+  }
+}
+```
 
-Generate card news slides from a topic or markdown file.
+### Setup for Cursor (stdio)
 
-| Option | Default | Description |
-|---|---|---|
-| `[topic]` | - | Topic string (required if no `--input`) |
-| `-i, --input <file>` | - | Markdown file with research/notes |
-| `-s, --series <name>` | `default` | Series theme name |
-| `-n, --slides <count>` | `10` | Number of slides (3-20) |
-| `-o, --output <dir>` | `./output` | Output directory |
-| `-m, --model <alias>` | env `LLM_MODEL` | LLM model alias or full model ID |
+Add to `.cursor/mcp.json`:
 
-### `series list` / `series create <name>`
+```json
+{
+  "mcpServers": {
+    "slideforge": {
+      "command": "bun",
+      "args": ["src/mcp-server.ts"],
+      "cwd": "/path/to/slideforge"
+    }
+  }
+}
+```
 
-List or create series themes (see [Series Themes](#series-themes)).
+### Setup for remote clients (HTTP / SSE)
 
-## MCP Server (Agent-Driven Mode)
+Start the server in the background, then point your MCP client at the URL:
 
-vibe-poster can run as an **MCP server** where the connected LLM agent (Claude, GPT, etc.) **is the brain**. The agent does all creative work — research, planning, copywriting, design, HTML coding — and the server handles only non-AI operations: validation, file I/O, and PNG rendering.
+```bash
+# Start in HTTP mode on a custom port
+bun run mcp --transport http --host 0.0.0.0 --port 8080
 
-**No API keys needed.** The LLM agent calling the tools IS the LLM.
+# Client connects to: http://<your-host>:8080/mcp
+```
+
+For legacy SSE clients:
+
+```bash
+bun run mcp --transport sse --port 8080
+
+# Client connects to:
+#   SSE stream:  GET  http://<your-host>:8080/sse
+#   Messages:    POST http://<your-host>:8080/messages?sessionId=<id>
+```
 
 ### MCP Tools
 
@@ -116,8 +149,10 @@ vibe-poster can run as an **MCP server** where the connected LLM agent (Claude, 
 | `save_qa_report` | Validate and save a QA review report |
 | `render_pngs` | Render HTML slides to 1080×1440px PNGs via headless Chrome (auto-generates presentation) |
 | `generate_presentation` | Generate a standalone presentation.html viewer from a slides directory |
-| `list_series` | List available series themes |
+| `list_themes` | List available themes |
 | `get_pattern_catalog` | Get all 28 layout patterns with structure hints |
+| `list_outputs` | List previous output directories with timestamps and available artifacts |
+| `apply_copy_to_templates` | Apply copy data to HTML slide templates (with optional PNG rendering) |
 
 ### MCP Prompts
 
@@ -131,78 +166,69 @@ vibe-poster can run as an **MCP server** where the connected LLM agent (Claude, 
 
 | Resource | Description |
 |---|---|
-| `vibe-poster://patterns` | Layout pattern catalog (JSON) |
-| `vibe-poster://design-tokens` | CSS custom properties |
-| `vibe-poster://base-styles` | Base CSS reset and utilities |
-| `vibe-poster://pattern-list` | Compact pattern list for prompts |
+| `slideforge://patterns` | Layout pattern catalog (JSON) |
+| `slideforge://design-tokens` | CSS custom properties |
+| `slideforge://base-styles` | Base CSS reset and utilities |
+| `slideforge://pattern-list` | Compact pattern list for prompts |
 
-### Setup for Claude Desktop
+## CLI Reference
 
-Add to `claude_desktop_config.json`:
+The CLI provides template re-rendering and theme/template management.
 
-```json
-{
-  "mcpServers": {
-    "vibe-poster": {
-      "command": "bun",
-      "args": ["src/mcp-server.ts"],
-      "cwd": "/path/to/vibe_image_poster"
-    }
-  }
-}
-```
+### `generate`
 
-### Setup for Cursor
+Apply copy.json to existing HTML slide templates and export PNGs.
 
-Add to `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "vibe-poster": {
-      "command": "bun",
-      "args": ["src/mcp-server.ts"],
-      "cwd": "/path/to/vibe_image_poster"
-    }
-  }
-}
-```
-
-### Run standalone
+| Option | Description |
+|---|---|
+| `--template <dir>` | **(required)** Source directory with `slides/` templates |
+| `--rerender <file>` | **(required)** Path to copy.json to apply |
+| `-t, --theme <name>` | Theme name |
+| `-o, --output <dir>` | Output directory |
 
 ```bash
-bun run mcp
+bun start generate --template ./output/2026-03-04_topic --rerender new-copy.json
 ```
 
-The server communicates over stdio. An MCP client must connect — running directly in a terminal will appear to hang (expected).
+### `theme list` / `theme create <name>`
+
+List or create themes (see [Themes](#themes)).
+
+### `template list` / `template add <folder> [name]`
+
+List or save slide templates for reuse.
+
+### `config set <key> <value>` / `config get <key>` / `config list` / `config unset <key>`
+
+Manage persistent user preferences. Valid keys: `theme`, `author`, `slides`, `output`.
 
 ## Architecture
 
-### Pipeline Flow
+### Pipeline Flow (driven by LLM agent via MCP)
 
 ```
-Topic/File -> Research -> Plan -> Copy -> Design -> HTML Build -> Validate & QA -> PNG Export -> Presentation
-                                                                       |
-                                                           (fix loop until QA passes)
+Topic -> Research -> Plan -> Copy -> Design -> HTML Build -> Validate & QA -> PNG Export -> Presentation
+                                                                  |
+                                                      (fix loop until QA passes)
 ```
 
-### Agents
+### Pipeline Stages
 
-| Agent | Responsibility | Key Constraint |
+| Stage | Responsibility | Key Constraint |
 |---|---|---|
-| **Researcher** | Gathers facts, stats, quotes, audience, keywords | Structured JSON output |
-| **Planner** | Plans slide structure with emotional curve (empathy -> transition -> evidence -> action) | Emotion temperature 1-5 per slide |
-| **Copywriter** | Writes Korean copy per slide | Strict char limits: heading 15, body 80/para, CTA 30 |
-| **Designer** | Selects layout patterns, defines color palette | Chooses from 28 pattern catalog |
-| **Developer** | Produces standalone HTML/CSS per slide | 1080x1440px, all CSS inline, no external deps, min 28px font |
-| **QA Reviewer** | Read-only review for factual/layout/design issues | Returns pass or needs_revision verdict |
+| **Research** | Gather facts, stats, quotes, audience, keywords | Structured JSON output |
+| **Plan** | Plan slide structure with emotional curve (empathy -> transition -> evidence -> action) | Emotion temperature 1-5 per slide |
+| **Copy** | Write Korean copy per slide | Strict char limits: heading 15, body 80/para, CTA 30 |
+| **Design** | Select layout patterns, define color palette | Choose from 28 pattern catalog |
+| **HTML Build** | Produce standalone HTML/CSS per slide | 1080x1440px, all CSS inline, no external deps, min 28px font |
+| **QA Review** | Read-only review for factual/layout/design issues | Returns pass or needs_revision verdict |
 
 ### Design Constraints
 
 - **Standalone HTML**: Every slide is a complete HTML document. No CDN links, no external images, no JavaScript. Only CSS shapes, gradients, and emoji.
 - **Korean-first**: `lang="ko"`, `word-break: keep-all`, Korean font stack (Pretendard, Noto Sans KR).
 - **28 layout patterns**: Defined in `src/design-system/shared/patterns.ts`. Categories: information, procedure, comparison, data, emphasis, code, mixed, intro.
-- **Design tokens**: CSS custom properties in `src/design-system/shared/design-tokens.css`. Series themes override tokens via `theme.css`.
+- **Design tokens**: CSS custom properties in `src/design-system/shared/design-tokens.css`. Themes override tokens via `theme.css`.
 
 ## Output Structure
 
@@ -212,7 +238,6 @@ Each generation creates a timestamped directory:
 output/
   2026-02-27_topic-slug/
     research.json       # Structured research data
-    research.md         # Human-readable research summary
     plan.json           # Slide plan with emotional curve
     copy.json           # Copy for each slide
     design-brief.json   # Color palette and layout patterns
@@ -236,7 +261,7 @@ output/
 - **Swipe** — touch navigation on mobile
 - Thumbnail strip at the bottom for quick jumping
 
-Generated automatically after PNG rendering (both CLI and MCP). Can also be triggered independently via the `generate_presentation` MCP tool.
+Generated automatically after PNG rendering. Can also be triggered independently via the `generate_presentation` MCP tool.
 
 ## Development
 
@@ -256,89 +281,62 @@ bun run format:fix # Auto-fix formatting
 ```
 src/
   index.ts                    # CLI entry point (Commander)
-  mcp-server.ts               # MCP server entry point (for 3rd-party LLM agents)
+  mcp-server.ts               # MCP server entry point
   config.ts                   # Env-based config with Zod validation
-  agents/
-    base-agent.ts             # Abstract base (provider-agnostic execution)
-    researcher.ts             # Research agent
-    contents-marketer.ts      # Plan + Copy agents
-    designer.ts               # Design brief agent
-    developer.ts              # HTML generation agent
-    qa-reviewer.ts            # QA review agent
+  commands/
+    generate.ts               # Template re-render command
+    theme.ts                  # Theme management
+    template.ts               # Template management
   pipeline/
-    orchestrator.ts           # Runs all stages sequentially
-    context.ts                # Mutable pipeline state
     types.ts                  # Zod schemas for all pipeline data
-  llm/
-    models.ts                 # Model registry (16 models, 3 providers)
-    provider.ts               # Provider abstraction + factory
-    providers/                # Anthropic, OpenAI, Google implementations
   design-system/
     shared/
       design-tokens.css       # CSS custom properties
       base-styles.css         # Reset + utility classes
       patterns.ts             # 28 layout pattern definitions
-    series/                   # Theme directories
+    themes/                   # Theme directories
   renderer/
     html-builder.ts           # Wraps partial HTML into full documents
     png-exporter.ts           # Puppeteer-based HTML-to-PNG
     presentation-builder.ts   # Generates interactive carousel viewer
-    templates/                # Fallback templates (cover, body, cta)
+    template-renderer.ts      # Applies copy data to HTML templates
   validation/
-    rules.ts                  # Canonical rule definitions
     slide-validator.ts        # Programmatic HTML checks
   utils/
     file.ts                   # File I/O helpers, slugify
     paths.ts                  # Path resolution
     logger.ts                 # Colored terminal logger
-tests/                        # Bun test suite (115 tests)
+    preferences.ts            # Cross-platform user preferences
+tests/
   renderer/
-    html-builder.test.ts      # quickValidateHtml, buildSlideHtml
-    presentation-builder.test.ts # Carousel generation, PNG toggle, navigation
+    html-builder.test.ts
+    presentation-builder.test.ts
   pipeline/
-    types.test.ts             # Zod schema validation for all pipeline stages
-    context.test.ts           # Pipeline state management
+    types.test.ts
   validation/
-    slide-validator.test.ts   # HTML validation rules
+    slide-validator.test.ts
   design-system/
-    patterns.test.ts          # Pattern catalog integrity
+    patterns.test.ts
   utils/
-    file.test.ts              # slugify, getOutputDir
-  config/
-    config.test.ts            # Env-based config loading
-  llm/
-    models.test.ts            # Model registry and resolution
-    provider.test.ts          # Provider API key handling
+    file.test.ts
 ```
 
 ### Adding a New Layout Pattern
 
 1. Add the pattern definition to `src/design-system/shared/patterns.ts`
-2. Include: `id`, `category`, `name`, `description`, `suitableFor` (roles), `structureHint` (HTML guide for the developer agent)
-3. The designer agent will automatically include it in available options
+2. Include: `id`, `category`, `name`, `description`, `suitableFor` (roles), `structureHint` (HTML guide)
+3. The LLM agent will automatically see it via the pattern catalog resource/tool
 
-### Adding a New Agent
+## Themes
 
-1. Create a new file in `src/agents/` extending `BaseAgent<TOutput>`
-2. Implement: `name`, `description`, `getSystemPrompt()`, `buildUserMessage(ctx)`, `parseResponse(text)`
-3. Define output schema in `src/pipeline/types.ts`
-4. Wire it into `src/pipeline/orchestrator.ts`
-5. Optionally add a per-agent model override env var in `src/config.ts`
-
-## Series Themes
-
-A series theme customizes the visual identity of generated slides.
+A theme customizes the visual identity of generated slides.
 
 ```bash
-# Create a new theme
-bun start series create my-brand
-
-# Use it
-bun start generate "topic" --series my-brand
+bun start theme create my-brand
 ```
 
-This creates `src/design-system/series/my-brand/` with:
-- `theme.json` - Metadata (name, description, author)
+This creates `src/design-system/themes/my-brand/` with:
+- `theme.json` - Metadata (name, description)
 - `theme.css` - CSS custom property overrides (empty by default)
 
 Override any design token in `theme.css` to customize colors, typography, spacing, etc. See `src/design-system/shared/design-tokens.css` for available tokens.

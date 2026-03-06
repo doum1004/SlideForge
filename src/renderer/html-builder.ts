@@ -18,10 +18,10 @@ export async function getBaseStylesCSS(): Promise<string> {
 }
 
 /**
- * Reads a series theme CSS file.
+ * Reads a theme CSS file.
  */
-export async function getThemeCSS(series: string): Promise<string> {
-  const themePath = resolveFromSrc("design-system", "series", series, "theme.css");
+export async function getThemeCSS(theme: string): Promise<string> {
+  const themePath = resolveFromSrc("design-system", "themes", theme, "theme.css");
   try {
     return await readTextFile(themePath);
   } catch {
@@ -114,7 +114,7 @@ function injectPreviewCSS(html: string): string {
  * Assembles a complete standalone HTML document for a slide.
  * Merges design tokens + base styles + theme + slide-specific CSS + content.
  */
-export async function buildSlideHtml(slideHtml: string, series: string): Promise<string> {
+export async function buildSlideHtml(slideHtml: string, theme: string): Promise<string> {
   // If the HTML already has <!DOCTYPE, assume it's already complete
   if (slideHtml.trim().startsWith("<!DOCTYPE") || slideHtml.trim().startsWith("<html")) {
     return injectPreviewCSS(slideHtml);
@@ -123,7 +123,7 @@ export async function buildSlideHtml(slideHtml: string, series: string): Promise
   // Otherwise, wrap the content in a complete HTML document
   const tokens = await getDesignTokensCSS();
   const baseStyles = await getBaseStylesCSS();
-  const theme = await getThemeCSS(series);
+  const themeCSS = await getThemeCSS(theme);
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -132,7 +132,7 @@ export async function buildSlideHtml(slideHtml: string, series: string): Promise
   <style>
 ${tokens}
 ${baseStyles}
-${theme}
+${themeCSS}
   </style>
 </head>
 <body>

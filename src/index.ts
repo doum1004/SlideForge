@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
 import { generate } from "./commands/generate.js";
-import { createSeries, listSeries } from "./commands/series.js";
+import { createTheme, listThemes } from "./commands/theme.js";
 import { addTemplate, listTemplates } from "./commands/template.js";
 import { loadConfig } from "./config.js";
 import { log } from "./utils/logger.js";
@@ -17,46 +17,29 @@ import {
 const program = new Command();
 
 program
-  .name("vibe-poster")
-  .description("Generate Instagram card news (1080x1440px) using AI-powered 5-agent pipeline")
+  .name("slideforge")
+  .description(
+    "Generate Instagram card news (1080x1440px). " +
+      "Use as an MCP server (recommended) or CLI for template re-rendering.",
+  )
   .version("0.1.0");
 
 program
   .command("generate")
-  .description("Generate card news from a topic or markdown file")
-  .argument("[topic]", "Topic to generate card news about")
-  .option("-i, --input <file>", "Input markdown file with research/notes")
-  .option("-s, --series <name>", "Series theme to use")
-  .option("-n, --slides <count>", "Number of slides to generate", "10")
-  .option("-o, --output <dir>", "Output directory", "./output")
-  .option(
-    "-m, --model <alias>",
-    "LLM model alias or ID (e.g., claude-sonnet-4, gpt-4o, gemini-2.5-pro)",
-  )
-  .option("--template <dir>", "Source directory with slides/ templates to reuse")
-  .option(
+  .description("Apply copy.json to HTML slide templates and export PNGs")
+  .requiredOption("--template <dir>", "Source directory with slides/ templates to reuse")
+  .requiredOption(
     "--rerender <file>",
-    "Path to copy.json — skip AI, just apply copy to templates (requires --template)",
+    "Path to copy.json to apply to templates",
   )
-  .action(async (topic: string | undefined, opts) => {
+  .option("-t, --theme <name>", "Theme to use")
+  .option("-o, --output <dir>", "Output directory")
+  .action(async (opts) => {
     try {
       const config = loadConfig();
+      opts.theme = opts.theme || config.defaultTheme || getPreference("theme") || "default";
 
-      // Validate: --rerender requires --template
-      if (opts.rerender && !opts.template) {
-        log.error("--rerender requires --template. Provide a template directory.");
-        process.exit(1);
-      }
-
-      // Resolution order: CLI flag > env var (DEFAULT_SERIES) > user preference > "default"
-      opts.series = opts.series || config.defaultSeries || getPreference("series") || "default";
-
-      // For full pipeline mode, use config model as fallback for logging
-      if (!opts.template) {
-        opts.model = opts.model || config.llmModel;
-      }
-
-      await generate(topic, opts);
+      await generate(opts);
     } catch (err) {
       log.error("Generation failed", err instanceof Error ? err : undefined);
       process.exit(1);
@@ -64,19 +47,19 @@ program
   });
 
 program
-  .command("series")
-  .description("Manage series themes")
+  .command("theme")
+  .description("Manage themes")
   .addCommand(
-    new Command("list").description("List available series themes").action(async () => {
-      await listSeries();
+    new Command("list").description("List available themes").action(async () => {
+      await listThemes();
     }),
   )
   .addCommand(
     new Command("create")
-      .description("Create a new series theme")
-      .argument("<name>", "Name of the new series")
+      .description("Create a new theme")
+      .argument("<name>", "Name of the new theme")
       .action(async (name: string) => {
-        await createSeries(name);
+        await createTheme(name);
       }),
   );
 
@@ -117,7 +100,6 @@ configCmd
 
     const typedKey = key as keyof import("./utils/preferences.js").UserPreferences;
 
-    // Coerce numeric values
     if (typedKey === "slides") {
       const num = parseInt(value, 10);
       if (Number.isNaN(num) || num < 3 || num > 20) {

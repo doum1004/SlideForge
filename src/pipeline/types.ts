@@ -136,7 +136,7 @@ export const SlideDesign = z.object({
 export type SlideDesign = z.infer<typeof SlideDesign>;
 
 export const DesignBriefOutput = z.object({
-  seriesTheme: z.string(),
+  theme: z.string(),
   colorPalette: z.object({
     primary: z.string(),
     secondary: z.string(),
@@ -147,19 +147,6 @@ export const DesignBriefOutput = z.object({
   slides: z.array(SlideDesign),
 });
 export type DesignBriefOutput = z.infer<typeof DesignBriefOutput>;
-
-// ─── Developer Output ──────────────────────────────────────────────────
-
-export const DeveloperSlide = z.object({
-  slideNumber: z.number().int().min(1),
-  html: z.string(),
-});
-export type DeveloperSlide = z.infer<typeof DeveloperSlide>;
-
-export const DeveloperOutput = z.object({
-  slides: z.array(DeveloperSlide),
-});
-export type DeveloperOutput = z.infer<typeof DeveloperOutput>;
 
 // ─── Auto-Validation Result ────────────────────────────────────────────
 
@@ -207,14 +194,3 @@ export const QAReport = z.object({
 });
 export type QAReport = z.infer<typeof QAReport>;
 
-// ─── Pipeline Options ──────────────────────────────────────────────────
-
-export interface PipelineOptions {
-  topic: string;
-  inputFile?: string;
-  series: string;
-  slideCount: number;
-  outputDir: string;
-  /** Model alias or raw model ID override (from --model CLI flag) */
-  model?: string;
-}
