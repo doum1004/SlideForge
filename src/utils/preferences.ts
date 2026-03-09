@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 export interface UserPreferences {
   /** Default theme name */
   theme?: string;
-  /** Author / brand shown in the bottom bar (default: @SlideForge) */
+  /** Author / brand shown in the bottom bar (default: @SlideAgile) */
   author?: string;
   /** Default number of slides */
   slides?: number;

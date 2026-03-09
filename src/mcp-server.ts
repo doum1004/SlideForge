@@ -46,7 +46,7 @@ import { resolveFromSrc } from "./utils/paths.js";
 import { getPreference } from "./utils/preferences.js";
 import { validateAllSlides } from "./validation/slide-validator.js";
 
-const DEFAULT_AUTHOR = "@SlideForge";
+const DEFAULT_AUTHOR = "@SlideAgile";
 
 function resolveAuthor(): string {
   return process.env.DEFAULT_AUTHOR || getPreference("author") || DEFAULT_AUTHOR;

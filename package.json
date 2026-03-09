@@ -6,8 +6,6 @@
   "bin": {
     "slideagile": "./src/index.ts",
     "slideagile-mcp": "./src/mcp-server.ts",
-    "slideforge": "./src/index.ts",
-    "slideforge-mcp": "./src/mcp-server.ts"
   },
   "scripts": {
     "start": "bun src/index.ts",

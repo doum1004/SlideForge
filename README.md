@@ -43,7 +43,7 @@ Preferences are stored at:
 | `CHROME_PATH` | auto-detected | Chrome/Chromium executable path |
 | `FFMPEG_PATH` | bundled (`ffmpeg-static`) | FFmpeg executable path override for `video build` |
 | `DEFAULT_THEME` | `default` | Default theme name |
-| `DEFAULT_AUTHOR` | `@SlideForge` | Author / brand shown in the bottom bar of every slide |
+| `DEFAULT_AUTHOR` | `@SlideAgile` | Author / brand shown in the bottom bar of every slide |
 | `DEFAULT_TTS_PROVIDER` | `gcp-hd` | Default TTS provider for video narration (`gcp-hd` or `openai`) |
 | `DEFAULT_TTS_VOICE` | unset | Default TTS voice ID (provider-specific) |
 | `DEFAULT_TTS_LANGUAGE` | `ko-KR` | Default TTS language code for narration |
@@ -54,7 +54,7 @@ MCP transport variables (`MCP_TRANSPORT`, `MCP_HOST`, `MCP_PORT`, etc.) are docu
 
 **Resolution order** (for theme): CLI `--theme` flag > `DEFAULT_THEME` env var > user preference > `"default"`
 
-**Resolution order** (for author): `DEFAULT_AUTHOR` env var > `author` user preference > `"@SlideForge"`
+**Resolution order** (for author): `DEFAULT_AUTHOR` env var > `author` user preference > `"@SlideAgile"`
 
 **Resolution order** (for TTS provider): `DEFAULT_TTS_PROVIDER` env var > `ttsProvider` user preference > `"gcp-hd"`
 

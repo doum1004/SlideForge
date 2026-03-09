@@ -22,7 +22,7 @@ program
   .name("slideagile")
   .description(
     "Generate short-form card news (default 1080x1920). " +
-      "Use as an MCP server (recommended) or CLI for template re-rendering.",
+    "Use as an MCP server (recommended) or CLI for template re-rendering.",
   )
   .version("0.1.0");
 
@@ -41,7 +41,7 @@ program
     try {
       const config = loadConfig();
       opts.theme = opts.theme || config.defaultTheme || getPreference("theme") || "default";
-      opts.author = opts.author || config.defaultAuthor || getPreference("author") || "@SlideForge";
+      opts.author = opts.author || config.defaultAuthor || getPreference("author") || "@SlideAgile";
 
       await generate(opts);
     } catch (err) {

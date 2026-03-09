@@ -80,7 +80,7 @@ async function templateRerender(
   await copySourceArtifacts(templateDir, newOutputDir);
 
   log.step("Applying copy data to HTML templates");
-  const author = options.author || process.env.DEFAULT_AUTHOR || getPreference("author") || "@SlideForge";
+  const author = options.author || process.env.DEFAULT_AUTHOR || getPreference("author") || "@SlideAgile";
   const updatedSlides = await reRenderAllSlides(newSlidesDir, copyOutput, { author });
 
   await writeJsonFile(join(newOutputDir, "copy.json"), copyOutput);
